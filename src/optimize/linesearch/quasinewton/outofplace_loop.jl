@@ -18,8 +18,6 @@ function minimize(objective::T1, state0::Tuple, approach::Tuple{<:Any, <:LineSea
                   options::OptOptions=OptOptions(),
                   linesearch::T2 = Backtracking()
                   ) where {T1<:ObjWrapper, T2}
-
-    _manifold(objective) isa Box && return minimize_constrained(objective, state0, approach, options, linesearch)              
     x0, B0 = state0
     T = eltype(x0)
     x, fx, ∇fx, z, fz, ∇fz, B = prepare_variables(objective, approach, x0, copy(x0), B0)
@@ -40,7 +38,7 @@ function minimize(objective::T1, state0::Tuple, approach::Tuple{<:Any, <:LineSea
     return z, fz, ∇fz, iter
 end
 
-function iterate(x, fx::Tf, ∇fx, z, fz, ∇fz, B, approach, objective, options, is_first=nothing) where Tf
+function _iterate(x, fx::Tf, ∇fx, z, fz, ∇fz, B, approach, objective, options, is_first=nothing) where Tf
     # split up the approach into the hessian approximation scheme and line search
     scheme, linesearch = approach
 
