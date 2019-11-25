@@ -50,10 +50,19 @@
     _alloc = @allocated minimize(fg_static, state0, BFGS(Inverse()))
     @test _alloc == 0
 
+
     lower = @SVector [-Inf, -Inf, -Inf]
     upper = @SVector [Inf, Inf, Inf]
-    @allocated minimize_constrained(fg_static, state0, BFGS(Direct()), lower = lower, upper = upper)
-    _alloc = @allocated minimize_constrained(fg_static, state0, BFGS(Direct()), lower = lower, upper = upper)
+    fg_static_c = OnceDiffed(fletcher_powell_fg_static, NLSolvers.Box(lower, upper); infer=true)
+    @allocated minimize(fg_static_c, state0, BFGS(Direct()))
+    _alloc = @allocated minimize(fg_static_c, state0, BFGS(Direct()))
+    @test _alloc == 0
+
+    lower = @SVector [-0.6, -0.6, -0.6]
+    upper = @SVector [0.5, 0.5, 0.5]
+    fg_static_c2 = OnceDiffed(fletcher_powell_fg_static, NLSolvers.Box(lower, upper); infer=true)
+    @allocated minimize(fg_static_c2, state0, BFGS(Direct()))
+    _alloc = @allocated minimize(fg_static_c2, state0, BFGS(Direct()))
     @test _alloc == 0
 
 
@@ -149,11 +158,14 @@ function fletcher_powell_fg_static(∇f, x)
     end
 end
 sv3 = @SVector[0.0,0.0,0.0]
-
-fg_static = OnceDiffed(fletcher_powell_fg_static, NLSolvers.Box(lower, upper); infer=true)
+state0 = (@SVector[-0.5, 0.0, 0.0], I+sv3*sv3')
 lower = @SVector [-Inf, -Inf, -Inf]
 upper = @SVector [Inf, Inf, Inf]
-minimize_constrained(fg_static, state0, BFGS(Direct()), lower = lower, upper = upper)
+
+fg_static = OnceDiffed(fletcher_powell_fg_static, NLSolvers.Box(lower, upper); infer=true)
+
+minimize(fg_static, state0, BFGS(Direct()))
 
 upper = @SVector [0.5, 0.5, 0.5]
-minimize_constrained(fg_static, state0, BFGS(Direct()), lower = lower, upper = upper)
+fg_static = OnceDiffed(fletcher_powell_fg_static, NLSolvers.Box(lower, upper); infer=true)
+minimize(fg_static, state0, BFGS(Direct()))

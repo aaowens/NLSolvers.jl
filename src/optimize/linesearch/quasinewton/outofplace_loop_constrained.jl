@@ -1,48 +1,32 @@
-function minimize_constrained(objective::ObjWrapper, x0,
-    scheme::QuasiNewton,
-    options=OptOptions())
 
-    minimize_constrained(objective, (x0, nothing), (scheme, Backtracking()), options)
-end
-
-function minimize_constrained(objective::ObjWrapper, x0,
-    approach::Tuple, options=OptOptions())
-
-    minimize_constrained(objective, (x0, nothing), approach, options)
-end
 function minimize_constrained(objective::ObjWrapper, state0::Tuple,
     scheme::QuasiNewton,
-    options=OptOptions(); lower = nothing, upper = nothing)
-    minimize_constrained(objective, state0, (scheme, Backtracking()), options, lower = lower, upper = upper)
+    options=OptOptions())
+    minimize_constrained(objective, state0, (scheme, Backtracking()), options)
 end
 
 function minimize_constrained(objective::T1, state0::Tuple, approach::Tuple{<:Any, <:LineSearch},
     options::OptOptions=OptOptions(),
-    linesearch::T2 = Backtracking(); lower = nothing, upper = nothing
+    linesearch::T2 = Backtracking()
     ) where {T1<:ObjWrapper, T2}
 
-    if lower === nothing && upper === nothing
-        return minimize(objective, state0, approach, options, linesearch)
-    elseif lower === nothing && upper !== nothing
-        error()
-    elseif lower !== nothing && upper === nothing
-        error()
-    end
-
+    m = _manifold(objective)
+    lower = m.lower
+    upper = m.upper
 
     x0, B0 = state0
     T = eltype(x0)
     x, fx, ∇fx, z, fz, ∇fz, B = prepare_variables(objective, approach, x0, copy(x0), B0)
     # first iteration
     clamp.(x, lower, upper) == x || error("Initial guess not in the feasible region")
-    x, z, fz, ∇fz, B, is_converged = iterate_constrained(x, fx, ∇fx, z, fz, ∇fz, B, approach, objective, options, lower, upper)
+    x, z, fz, ∇fz, B, is_converged = iterate_constrained(x, fx, ∇fx, z, fz, ∇fz, B, approach, objective, options)
 
     iter = 0
     while iter <= options.maxiter && !is_converged
         iter += 1
 
         # take a step and update approximation
-        x, z, fz, ∇fz, B, is_converged = iterate_constrained(x, fx, ∇fx, z, fz, ∇fz, B, approach, objective, options, lower, upper, false)
+        x, z, fz, ∇fz, B, is_converged = iterate_constrained(x, fx, ∇fx, z, fz, ∇fz, B, approach, objective, options, false)
         if norm(x.-z, Inf) ≤ T(1e-16)
             break
         end
@@ -55,10 +39,13 @@ end
 initialh(x::StaticVector{P,T}) where {P,T} = SMatrix{P,P,T}(I)
 initialh(x::AbstractVector) = [i == j ? 1. : 0. for i in 1:size(x, 1), j in 1:size(x, 1)]
 
-function iterate_constrained(x, fx::Tf, ∇fx, z, fz, ∇fz, B, approach, objective, options, lower, upper, is_first=nothing) where Tf
+function iterate_constrained(x, fx::Tf, ∇fx, z, fz, ∇fz, B, approach, objective, options, is_first=nothing) where Tf
     # split up the approach into the hessian approximation scheme and line search
     scheme, linesearch = approach
     epsg = 1e-8
+    m = _manifold(objective)
+    lower = m.lower
+    upper = m.upper
     # Move nexts into currs
     fx = fz
     x = copy(z)
@@ -81,18 +68,11 @@ function iterate_constrained(x, fx::Tf, ∇fx, z, fz, ∇fz, B, approach, object
 
     # Binding set 1
     # true if free
-
-    s1l = .!( ((x .<= lower .+ epsg) .& (∇fx .>= 0)) .| ((x .>= upper .- epsg) .& (∇fx .<= 0)) )
+    lower_e = lower .+ epsg
+    upper_e = upper .- epsg
+    sl = .!( ((x .<= lower_e) .& (∇fx .>= 0)) .| ((x .>= upper_e) .& (∇fx .<= 0)) )
     Ix = initialh(x) # An identity matrix of correct type
-    #=
-    # Binding set 2
-    binding = isbinding.(s1l, s1l')
-    Hbar = cdiag.(B, binding, Ix)
 
-    Sbargrad = find_direction(Hbar, ∇fx, scheme) # solve Bd = -∇fx
-    s2l = .!( ((x .<= lower) .& (Sbargrad .> 0)) .| ((x .>= upper) .& (Sbargrad .< 0)) )
-    =#
-    sl = s1l #.& s2l
     binding = isbinding.(sl, sl')
     Hhat = cdiag.(B, binding, Ix)
 
