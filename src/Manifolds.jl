@@ -76,3 +76,10 @@ end
 retract(M::Manifold, x, v, t::Real) = retract(M, x, t*v)
 
 retract(M::Manifold, x, v, t::Real, method::AbstractRetractionMethod) = retract(M, x, t*v, method)
+
+struct Box{T} <: Manifold
+    lower::T
+    upper::T
+end
+
+retract(M::Box, x, v, t::Real) = clamp.(x+t*v, M.lower, M.upper)

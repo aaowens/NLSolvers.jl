@@ -56,7 +56,7 @@ include("optimize/randomsearch/randomsearch.jl")
 include("optimize/directsearch/directsearch.jl")
 export NelderMead
 include("optimize/trustregions/trustregions.jl")
-export minimize, minimize!, OptProblem
+export minimize, minimize!, OptProblem, minimize_constrained
 
 include("nlsolve/root.jl")
 export nlsolve, nlsolve!, NLEProblem

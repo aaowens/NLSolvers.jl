@@ -30,3 +30,4 @@ end
 
 include("inplace_loop.jl")
 include("outofplace_loop.jl")
+include("outofplace_loop_constrained.jl")
