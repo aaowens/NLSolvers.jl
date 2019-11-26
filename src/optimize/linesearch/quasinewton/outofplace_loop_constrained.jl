@@ -1,11 +1,3 @@
-function isboxmanifold(objective)
-    if _manifold(objective) isa Box
-        return true
-    else
-        return false
-    end
-end
-
 initialh(x::StaticVector{P,T}) where {P,T} = SMatrix{P,P,T}(I)
 initialh(x::AbstractVector) = [i == j ? 1. : 0. for i in 1:size(x, 1), j in 1:size(x, 1)]
 
